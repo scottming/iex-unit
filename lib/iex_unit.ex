@@ -57,6 +57,7 @@ defmodule IExUnit do
       |> List.wrap()
       |> Enum.map(fn p -> if File.dir?(p), do: ls(p), else: p end)
       |> List.flatten()
+      |> Enum.map(&Path.relative_to_cwd/1)
 
     run_test(paths, options)
   end
@@ -69,15 +70,20 @@ defmodule IExUnit do
   defp run_test(files, options) do
     IEx.Helpers.recompile()
 
-    with {:ok, _, _} <- Kernel.ParallelCompiler.compile(files) do
-      configure(options)
-      server_modules_loaded()
-      ExUnit.run()
+    case Kernel.ParallelCompiler.compile(files) do
+      {:ok, _, _} ->
+        configure(options)
+        server_modules_loaded()
+        ExUnit.run()
+
+      error ->
+        write_compile_error_on_configured(error, options)
+        error
     end
   end
 
   defp configure(options) do
-    options = opts_for_line(options) ++ opts_for_seed(options)
+    options = opts_for_line(options) ++ opts_for_seed(options) ++ opts_for_output_dir(options)
     ExUnit.configure(options)
   end
 
@@ -96,9 +102,44 @@ defmodule IExUnit do
     if seed, do: [seed: seed], else: []
   end
 
+  defp opts_for_output_dir(options) do
+    output_dir = Keyword.get(options, :output_dir)
+    if output_dir, do: [output_dir: output_dir], else: []
+  end
+
   if System.version() > "1.14.1" do
     defp server_modules_loaded(), do: ExUnit.Server.modules_loaded(false)
   else
     defp server_modules_loaded(), do: ExUnit.Server.modules_loaded()
   end
+
+  defp write_compile_error_on_configured(error, options) do
+    {:error, messages, suggestions} = error
+    output_dir = options[:output_dir]
+
+    if output_dir do
+      error_message = extract_error_string(messages, suggestions)
+      write_compile_error(output_dir, options[:seed], error_message)
+    else
+      :ok
+    end
+  end
+
+  defp write_compile_error(output_dir, seed, message) do
+    File.mkdir_p!(output_dir)
+    compile_error_path = Path.join(output_dir, "compile_error")
+    {:ok, compile_error_file} = File.open(compile_error_path, [:write])
+    IO.write(compile_error_file, "#{seed}:#{message}")
+    File.close(compile_error_file)
+  end
+
+  defp extract_error_string(error, suggestions) when is_list(error) do
+    messages = for {_test, _line, message} <- error, do: message
+    suggestions = for {_test, _line, suggestion} <- suggestions, do: suggestion
+
+    [messages, suggestions]
+    |> Enum.zip_reduce([], fn pairs, acc -> [Enum.join(pairs, "") | acc] end)
+    |> Enum.join("---")
+  end
 end
+
