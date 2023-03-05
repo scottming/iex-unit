@@ -133,7 +133,7 @@ defmodule IExUnit do
     File.close(compile_error_file)
   end
 
-  defp extract_error_string(error, suggestions) when is_list(error) do
+  defp extract_error_string(error, suggestions) when is_list(error) and suggestions != [] do
     messages = for {_test, _line, message} <- error, do: message
     suggestions = for {_test, _line, suggestion} <- suggestions, do: suggestion
 
@@ -141,5 +141,9 @@ defmodule IExUnit do
     |> Enum.zip_reduce([], fn pairs, acc -> [Enum.join(pairs, "") | acc] end)
     |> Enum.join("---")
   end
-end
 
+  defp extract_error_string(error, _) when is_list(error) do
+    for({_test, _line, message} <- error, do: message)
+    |> Enum.join("---")
+  end
+end
