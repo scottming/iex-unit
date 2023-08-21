@@ -1,5 +1,21 @@
 # https://github.com/elixir-lang/elixir/blob/44c18a3894e8ab57b7b1e7eb2d646f0bc129fb39/lib/elixir/lib/macro.ex
 defmodule FutureMacro do
+  @typedoc "Abstract Syntax Tree (AST)"
+  @type t :: input
+
+  @typedoc "The inputs of a macro"
+  @type input ::
+          input_expr
+          | {input, input}
+          | [input]
+          | atom
+          | number
+          | binary
+
+  @typep input_expr :: {input_expr | atom, metadata, atom | [input]}
+
+  @type metadata :: keyword
+
   @doc """
   Default backend for `Kernel.dbg/2`.
 
@@ -45,11 +61,11 @@ defmodule FutureMacro do
 
   # Pipelines.
   defp dbg_ast_to_debuggable({:|>, _meta, _args} = pipe_ast) do
-    value_var = unique_var(:value, __MODULE__)
-    values_acc_var = unique_var(:values, __MODULE__)
+    value_var = Macro.unique_var(:value, __MODULE__)
+    values_acc_var = Macro.unique_var(:values, __MODULE__)
 
-    [start_ast | rest_asts] = asts = for {ast, 0} <- unpipe(pipe_ast), do: ast
-    rest_asts = Enum.map(rest_asts, &pipe(value_var, &1, 0))
+    [start_ast | rest_asts] = asts = for {ast, 0} <- Macro.unpipe(pipe_ast), do: ast
+    rest_asts = Enum.map(rest_asts, &Macro.pipe(value_var, &1, 0))
 
     initial_acc =
       quote do
@@ -70,7 +86,7 @@ defmodule FutureMacro do
     quote do
       unquote(values_ast)
 
-      {:pipe, unquote(escape(asts)), Enum.reverse(unquote(values_acc_var))}
+      {:pipe, unquote(Macro.escape(asts)), Enum.reverse(unquote(values_acc_var))}
     end
   end
 
@@ -79,8 +95,8 @@ defmodule FutureMacro do
   # Logic operators.
   defp dbg_ast_to_debuggable({op, _meta, [_left, _right]} = ast)
        when op in unquote(dbg_decomposed_binary_operators) do
-    acc_var = unique_var(:acc, __MODULE__)
-    result_var = unique_var(:result, __MODULE__)
+    acc_var = Macro.unique_var(:acc, __MODULE__)
+    result_var = Macro.unique_var(:result, __MODULE__)
 
     quote do
       unquote(acc_var) = []
@@ -103,7 +119,7 @@ defmodule FutureMacro do
           unquote(clauses_returning_index)
         end
 
-      {:case, unquote(escape(ast)), expr, clause_index, result}
+      {:case, unquote(Macro.escape(ast)), expr, clause_index, result}
     end
   end
 
@@ -113,7 +129,7 @@ defmodule FutureMacro do
         hd(
           quote do
             clause_value = unquote(left) ->
-              {unquote(escape(left)), clause_value, unquote(index), unquote(right)}
+              {unquote(Macro.escape(left)), clause_value, unquote(index), unquote(right)}
           end
         )
       end)
@@ -124,13 +140,13 @@ defmodule FutureMacro do
           unquote(modified_clauses)
         end
 
-      {:cond, unquote(escape(ast)), clause_ast, clause_value, clause_index, value}
+      {:cond, unquote(Macro.escape(ast)), clause_ast, clause_value, clause_index, value}
     end
   end
 
   # Any other AST.
   defp dbg_ast_to_debuggable(ast) do
-    quote do: {:value, unquote(escape(ast)), unquote(ast)}
+    quote do: {:value, unquote(Macro.escape(ast)), unquote(ast)}
   end
 
   # This is a binary operator. We replace the left side with a recursive call to
@@ -143,7 +159,7 @@ defmodule FutureMacro do
       unquote(result_var) = unquote(op)(unquote(replaced_left), unquote(right))
 
       unquote(acc_var) = [
-        {unquote(escape(ast)), unquote(result_var)} | unquote(acc_var)
+        {unquote(Macro.escape(ast)), unquote(result_var)} | unquote(acc_var)
       ]
 
       unquote(result_var)
@@ -155,7 +171,7 @@ defmodule FutureMacro do
   defp dbg_boolean_tree(ast, acc_var, result_var) do
     quote do
       unquote(result_var) = unquote(ast)
-      unquote(acc_var) = [{unquote(escape(ast)), unquote(result_var)} | unquote(acc_var)]
+      unquote(acc_var) = [{unquote(Macro.escape(ast)), unquote(result_var)} | unquote(acc_var)]
       unquote(result_var)
     end
   end
