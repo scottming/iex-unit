@@ -1,4 +1,6 @@
 defmodule IExUnit do
+  Code.require_file(Path.join(__DIR__, "future_macro.ex"))
+
   @moduledoc """
   Copied some code from here: https://github.com/Olshansk/test_iex/blob/9bafb3bc4e89555ab7ad87b9593b1bfc6b71caaa/lib/test_iex.ex, 
   but added more features to support VScode and Neovim.
@@ -19,12 +21,17 @@ defmodule IExUnit do
   def start() do
     ExUnit.start()
     Code.compiler_options(ignore_module_conflict: true)
+    set_dbg_callback()
 
     if File.exists?("test/test_helper.exs") do
       Code.eval_file("test/test_helper.exs", File.cwd!())
     end
 
     :ok
+  end
+
+  defp set_dbg_callback do
+    Application.put_env(:elixir, :dbg_callback, {IExUnit.FutureMacro, :dbg, []})
   end
 
   @doc """

@@ -1,5 +1,5 @@
 # https://github.com/elixir-lang/elixir/blob/44c18a3894e8ab57b7b1e7eb2d646f0bc129fb39/lib/elixir/lib/macro.ex
-defmodule FutureMacro do
+defmodule IExUnit.FutureMacro do
   @typedoc "Abstract Syntax Tree (AST)"
   @type t :: input
 
