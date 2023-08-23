@@ -1,8 +1,12 @@
-defmodule IExUnit do
-  Code.require_file(Path.join(__DIR__, "future_macro.ex"))
+ defmodule IExUnit do
+  case Code.ensure_compiled(IExUnit.FutureMacro) do
+    {:error, _} ->
+      Code.require_file(Path.join(__DIR__, "future_macro.ex"))
+    _ -> :ok
+  end
 
   @moduledoc """
-  Copied some code from here: https://github.com/Olshansk/test_iex/blob/9bafb3bc4e89555ab7ad87b9593b1bfc6b71caaa/lib/test_iex.ex, 
+  Copied some code from here: https://github.com/Olshansk/test_iex/blob/9bafb3bc4e89555ab7ad87b9593b1bfc6b71caaa/lib/test_iex.ex,
   but added more features to support VScode and Neovim.
 
   Copyright (c) 2019 - 2021 Daniel Olshansky
