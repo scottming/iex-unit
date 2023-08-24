@@ -1,10 +1,4 @@
- defmodule IExUnit do
-  case Code.ensure_compiled(IExUnit.FutureMacro) do
-    {:error, _} ->
-      Code.require_file(Path.join(__DIR__, "future_macro.ex"))
-    _ -> :ok
-  end
-
+defmodule IExUnit do
   @moduledoc """
   Copied some code from here: https://github.com/Olshansk/test_iex/blob/9bafb3bc4e89555ab7ad87b9593b1bfc6b71caaa/lib/test_iex.ex,
   but added more features to support VScode and Neovim.
@@ -16,6 +10,21 @@
   This module lets execute specific tests from within a running iex shell to
   avoid needing to start and stop the whole application every time.
   """
+
+  @deps_modules %{
+    IExUnit.Compiler => "iex_unit/compiler.ex",
+    IExUnit.FutureMacro => "iex_unit/future_macro.ex"
+  }
+
+  for {module, path} <- @deps_modules do
+    case Code.ensure_compiled(module) do
+      {:error, _} ->
+        Code.require_file(Path.join(__DIR__, path))
+
+      _ ->
+        :ok
+    end
+  end
 
   @doc """
   Starts the testing context.
@@ -81,14 +90,13 @@
   defp run_test(files, options) do
     IEx.Helpers.recompile()
 
-    case Kernel.ParallelCompiler.compile(files) do
-      {:ok, _, _} ->
+    case IExUnit.Compiler.compile(files, options) do
+      :ok ->
         configure(options)
         server_modules_loaded()
         ExUnit.run()
 
       error ->
-        write_compile_error_on_configured(error, options)
         error
     end
   end
@@ -122,39 +130,5 @@
     defp server_modules_loaded(), do: ExUnit.Server.modules_loaded(false)
   else
     defp server_modules_loaded(), do: ExUnit.Server.modules_loaded()
-  end
-
-  defp write_compile_error_on_configured(error, options) do
-    {:error, messages, suggestions} = error
-    output_dir = options[:output_dir]
-
-    if output_dir do
-      error_message = extract_error_string(messages, suggestions)
-      write_compile_error(output_dir, options[:seed], error_message)
-    else
-      :ok
-    end
-  end
-
-  defp write_compile_error(output_dir, seed, message) do
-    File.mkdir_p!(output_dir)
-    compile_error_path = Path.join(output_dir, "compile_error")
-    {:ok, compile_error_file} = File.open(compile_error_path, [:write])
-    IO.write(compile_error_file, "#{seed}:#{message}")
-    File.close(compile_error_file)
-  end
-
-  defp extract_error_string(error, suggestions) when is_list(error) and suggestions != [] do
-    messages = for {_test, _line, message} <- error, do: message
-    suggestions = for {_test, _line, suggestion} <- suggestions, do: suggestion
-
-    [messages, suggestions]
-    |> Enum.zip_reduce([], fn pairs, acc -> [Enum.join(pairs, "") | acc] end)
-    |> Enum.join("---")
-  end
-
-  defp extract_error_string(error, _) when is_list(error) do
-    for({_test, _line, message} <- error, do: message)
-    |> Enum.join("---")
   end
 end
