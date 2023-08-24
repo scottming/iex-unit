@@ -1,4 +1,6 @@
 defmodule IExUnit.Compiler do
+  @compile_error_file_name "compile_error"
+
   def compile(files, options) do
     case Kernel.ParallelCompiler.compile(files) do
       {:ok, _, _} ->
@@ -24,7 +26,7 @@ defmodule IExUnit.Compiler do
 
   defp write_compile_error(output_dir, seed, message) do
     File.mkdir_p!(output_dir)
-    compile_error_path = Path.join(output_dir, "compile_error")
+    compile_error_path = Path.join(output_dir, @compile_error_file_name)
     {:ok, compile_error_file} = File.open(compile_error_path, [:write])
     IO.write(compile_error_file, "#{seed}:#{message}")
     File.close(compile_error_file)
@@ -44,4 +46,3 @@ defmodule IExUnit.Compiler do
     |> Enum.join("---")
   end
 end
-

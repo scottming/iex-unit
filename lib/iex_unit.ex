@@ -123,7 +123,13 @@ defmodule IExUnit do
 
   defp opts_for_output_dir(options) do
     output_dir = Keyword.get(options, :output_dir)
-    if output_dir, do: [output_dir: output_dir], else: []
+
+    if output_dir do
+      :persistent_term.put(:output_dir, output_dir)
+      [output_dir: output_dir]
+    else
+      []
+    end
   end
 
   if System.version() > "1.14.1" do
